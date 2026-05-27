@@ -1,8 +1,13 @@
 import pytest
 import sys
 import json
+from src.core.db_client import DBClient
 from src.core.engine import GeocoderEngine
 from src.cli import main
+
+@pytest.fixture(autouse=True)
+def setup_test_db(monkeypatch):
+    monkeypatch.setattr(DBClient,"__init__", DBClient(db_path="tests/test_data/geocoder_test.db"))
 
 #capsys перехватывает все, что записывается в stdout и stderr
 class TestCliSingleMode:
@@ -90,7 +95,7 @@ class TestCliBatchMode:
         input_file = tmp_path / "input.txt"
         output_file = tmp_path / "output.jsonl"
         input_file.write_text(f"г. Москва, ул. Ленина, д. 15\n"
-                              f"новосибирск\n", encoding="utf-8")
+                              f"новосиб, ул ленина 5\n", encoding="utf-8")
         sys.argv = ["src.cli", "-i", str(input_file), "-o", str(output_file)]
 
         main()

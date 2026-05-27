@@ -1,24 +1,26 @@
 import sqlite3
 
 
-def create_mock_db():
+def create_test_db():
 
     conn = sqlite3.connect('geocoder_test.db')
     cursor = conn.cursor()
 
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS addresses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            region TEXT,
-            city TEXT,
-            street TEXT,
-            house TEXT,
-            lat REAL,
-            lon REAL
-        )
-    ''')
+    cursor.execute("DROP TABLE IF EXISTS addresses")
 
-    cursor.execute('DELETE FROM addresses')
+    cursor.execute(
+        """
+        CREATE VIRTUAL TABLE addresses USING fts5 (
+            region,
+            city,
+            street,
+            house,
+            lat UNINDEXED,
+            lon UNINDEXED,
+            tokenize = 'unicode61 remove_diacritics 1'
+        )
+    """
+    )
 
     test_data = [
         ('московская обл', 'москва', 'ленина', '15', 55.7558, 37.6173),
@@ -37,4 +39,4 @@ def create_mock_db():
 
 
 if __name__ == '__main__':
-    create_mock_db()
+    create_test_db()

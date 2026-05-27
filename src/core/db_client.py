@@ -11,6 +11,7 @@ class DBClient:
         else:
             #resolve - абсолютный путь
             self.db_path = Path(__file__).resolve().parents[2] / "data" / "geocoder.db"
+
         self._conn: Optional[sqlite3.Connection] = None
 
     def __enter__(self):
@@ -43,21 +44,19 @@ class DBClient:
 
         cursor = self._conn.cursor()
         #lat lon - широта, долгота
-        query = f"SELECT region, city, street, house, lat, lon FROM addresses WHERE " #*
+        #['нск', 'ленина'] -> 'нск* AND ленина*'
+        fts_query = " AND ".join([f"{token}*" for token in tokens])
 
-        conditions = []
-        params = []
-        for token in tokens:
-
-            conditions.append("(region || ' ' || city || ' ' || street || ' ' || house) LIKE ?")
-            #%...% - для поиска совпадений в sql
-            params.append(f"%{token}%")
-
-        query += " AND ".join(conditions) #собираем запрос
+        query = """
+                    SELECT region, city, street, house, lat, lon 
+                    FROM addresses 
+                    WHERE addresses MATCH ? 
+                    LIMIT 1;
+                """
 
         try:
-            cursor.execute(query, params) #запрос к базе данных с параметрами
-            row = cursor.fetchone() #извлекаем следующую строку результата запроса
+            cursor.execute(query, (fts_query,))  # запрос к базе данных с параметрами
+            row = cursor.fetchone()  # извлекаем следующую строку результата запроса
 
             if row:
                 format_address = f"{row['region']}, г. {row['city']}, ул. {row['street']}, д. {row['house']}"
