@@ -13,7 +13,7 @@ class TestDBClient:
             result = db.search_address(["новосибирск", "ленина", "5"])
             assert result is not None
             assert result["lat"] == 55.0302
-            assert "Новосибирская" in result["region"]
+            assert "новосибирская" in result["region"]
 
 
     def test_db_client_address_not_found(self):

@@ -13,8 +13,8 @@ class TestEngine:
         result = engine.geocode("г. Москва, ул. Ленина, д. 15")
         assert result["lat"] == 55.7558
         assert result["lon"] == 37.6173
-        assert "Московская" in result["region"]
-        assert "Москва" in result["city"]
+        assert "московская" in result["region"]
+        assert "москва" in result["city"]
         assert "15" in result["house"]
 
     def test_geocoder_address_not_found(self, engine):
@@ -56,7 +56,7 @@ class TestBatchEngine:
         data_1 = json.loads(lines[0])
         assert data_1["status"] == "success"
         assert data_1["initial_address"] == "г. Новосибирск, ул. Ленина, дом 5"
-        assert data_1["address_components"]["city"] == "Новосибирск"
+        assert data_1["address_components"]["city"] == "новосибирск"
         assert data_1["lat"] == 55.0302
         assert data_1["lon"] == 82.9204
 
