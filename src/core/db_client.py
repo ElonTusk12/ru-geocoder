@@ -10,7 +10,7 @@ class DBClient:
             self.db_path = Path(db_path)
         else:
             #resolve - абсолютный путь
-            self.db_path = Path(__file__).resolve().parents[2] / "data" / "geocoder.db"
+            self.db_path = Path(__file__).resolve().parents[2] / "data" / "geocoder_test.db"
         self._conn: Optional[sqlite3.Connection] = None
 
     def __enter__(self):
@@ -30,10 +30,6 @@ class DBClient:
     def search_address(self, tokens: list[str]) -> dict | None:
         if not tokens:
             return None
-
-        if not self._conn:
-            raise DatabaseConnectionError("База данных не подключена. Используйте 'with'.")
-
 
         #для случая если метод не был вызван через with
         is_local_conn = False
@@ -64,9 +60,13 @@ class DBClient:
             row = cursor.fetchone() #извлекаем следующую строку результата запроса
 
             if row:
-                format_address = f"{row['region'].title()}, г. {row['city'].title()}, ул. {row['street'].title()}, д. {row['house']}"
+                format_address = f"{row['region']}, г. {row['city']}, ул. {row['street']}, д. {row['house']}"
                 return {
                     "format_address": format_address,
+                    "region": row["region"],
+                    "city": row["city"],
+                    "street": row["street"],
+                    "house": row["house"],
                     "lat": row["lat"],
                     "lon": row["lon"]
                 }
@@ -77,7 +77,9 @@ class DBClient:
 
         finally:
             if is_local_conn:
-                self._conn.close()
+                if self._conn:
+                    self._conn.close()
+                self._conn = None
 
 
 

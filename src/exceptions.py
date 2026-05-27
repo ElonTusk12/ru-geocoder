@@ -1,4 +1,5 @@
 class GeocoderError(Exception):
+    """Базовый класс для всех ошибок геокодера"""
     pass
 
 class DatabaseConnectionError(GeocoderError):
