@@ -5,7 +5,7 @@ from src.core.engine import GeocoderEngine
 
 @pytest.fixture
 def engine():
-    return GeocoderEngine(db_path="data/geocoder_test.db")
+    return GeocoderEngine(db_path="tests/test_data/geocoder_test.db")
 
 class TestEngine:
 
@@ -33,14 +33,11 @@ class TestEngine:
         with pytest.raises(AddressNotFoundError): #тут еще надо подумать
             engine.geocode("некорректный адрес")
 
-    def test_geocoder_batch_engine(self, engine):
-        pass
-
 class TestBatchEngine:
 
     def test_geocoder_batch_basic(self, engine, tmp_path):
         input_file = tmp_path / "input.txt"
-        output_file = tmp_path / "output.txt"
+        output_file = tmp_path / "output.jsonl"
 
         input_file.write_text(
             "г. Новосибирск, ул. Ленина, дом 5\n"

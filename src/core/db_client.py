@@ -10,7 +10,7 @@ class DBClient:
             self.db_path = Path(db_path)
         else:
             #resolve - абсолютный путь
-            self.db_path = Path(__file__).resolve().parents[2] / "data" / "geocoder_test.db"
+            self.db_path = Path(__file__).resolve().parents[2] / "data" / "geocoder.db"
         self._conn: Optional[sqlite3.Connection] = None
 
     def __enter__(self):

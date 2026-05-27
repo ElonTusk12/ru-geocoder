@@ -3,7 +3,7 @@ import sqlite3
 
 def create_mock_db():
 
-    conn = sqlite3.connect('data/geocoder_test.db')
+    conn = sqlite3.connect('geocoder_test.db')
     cursor = conn.cursor()
 
     cursor.execute('''
@@ -33,7 +33,7 @@ def create_mock_db():
 
     conn.commit()
     conn.close()
-    print("Тестовая база данных успешно создана data/geocoder_test.db")
+    print("Тестовая база данных успешно создана tests/test_data/geocoder_test.db")
 
 
 if __name__ == '__main__':
