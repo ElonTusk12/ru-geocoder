@@ -6,7 +6,7 @@ class AddressParser:
 
     def parse(self, raw_text: str) -> list[str]:
         if not raw_text:
-            return []
+            return None
 
         address = raw_text.lower()
         address = re.sub(r'[,.\-/]', ' ', address)

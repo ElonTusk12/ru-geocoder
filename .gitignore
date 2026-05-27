@@ -226,3 +226,4 @@ __marimo__/
 /.idea/modules.xml
 /.idea/misc.xml
 /.idea/ru-geocoder.iml
+/.idea/.gitignore
