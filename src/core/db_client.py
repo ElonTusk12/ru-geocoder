@@ -45,6 +45,7 @@ class DBClient:
         cursor = self._conn.cursor()
         #lat lon - широта, долгота
         #['нск', 'ленина'] -> 'нск* AND ленина*'
+        #LIMIT 1 - первое совпадение
         fts_query = " AND ".join([f"{token}*" for token in tokens])
 
         query = """
