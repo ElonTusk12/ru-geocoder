@@ -1,4 +1,6 @@
 import re
+from typing import Any
+
 
 class AddressParser:
     def __init__(self):
@@ -10,15 +12,32 @@ class AddressParser:
             'кв', 'квартира', 'оф', 'офис'
         }
         self.punctuation_pattern = re.compile(r'[.,\-/\\()]')
-    def parse(self, raw_text: str) -> list[str]:
+
+        self.house_pattern = re.compile(r'(?:д|дом)\b\s*(\d+[а-я]?(?:/\d+)?)|\b(\d+[а-я]?)$')
+        self.corp_pattern = re.compile(r'(?:к|корп|корпус)\b\s*(\d+[а-я]?)')
+    def parse_tokens(self, raw_text: str) -> list[str]:
         """
         Очищает строку и разбивает её на токены для FTS5.
         """
         if not raw_text:
             return []
 
-        address = self.punctuation_pattern.sub(' ', raw_text.lower())
+        raw_text_clean = self.punctuation_pattern.sub(' ', raw_text.lower())
 
-        tokens = [token for token in address.split() if token not in self.garbage_words]
+        return [token for token in raw_text_clean.split() if token not in self.garbage_words]
+    def parse_structure(self, raw_text: str) -> dict[str, str | None | Any]:
+        """
+        Парсит строку для ранжирования thefuzz
+        """
+        raw_text_clean = self.punctuation_pattern.sub(' ', raw_text.lower())
 
-        return tokens
+        house_match = self.house_pattern.search(raw_text_clean)
+        corp_match = self.corp_pattern.search(raw_text_clean)
+
+        return {
+            'raw_address': raw_text_clean,
+            'house': (house_match.group(1) or house_match.group(2)) if house_match else None,
+            'corp': corp_match.group(1) if corp_match else None
+        }
+        
+        

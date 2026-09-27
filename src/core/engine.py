@@ -18,7 +18,7 @@ class GeocoderEngine:
         if not raw_address or not raw_address.strip():
             raise AddressParseError("Пустая строка адреса.")
 
-        tokens = self.parser.parse(raw_address)
+        tokens = self.parser.parse_tokens(raw_address)
         if not tokens:
             raise AddressParseError(f"Некорректный формат адреса: {raw_address}")
 
@@ -47,7 +47,7 @@ class GeocoderEngine:
                     if not raw_address:
                         continue
 
-                    tokens = self.parser.parse(raw_address)
+                    tokens = self.parser.parse_tokens(raw_address)
                     if not tokens:
                         out_data = {
                             "initial_address": raw_address,
