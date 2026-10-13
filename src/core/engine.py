@@ -3,6 +3,15 @@ import json
 from src.core.db_client import DBClient
 from src.core.parser import AddressParser
 from src.exceptions import AddressParseError, AddressNotFoundError, GeocoderError
+from rapidfuzz import fuzz, process
+
+
+def address_process(tokens: dict[str, str]) -> str:
+    """
+    Составляет из токенов строку для сравнения улиц и домов
+    """
+    fields = [tokens.get("street"), tokens.get("house"), tokens.get("corp")]
+    return " ".join([str(f) for f in fields if f is not None])
 
 
 class GeocoderEngine:
@@ -10,7 +19,7 @@ class GeocoderEngine:
         self.db_path = db_path
         self.parser = AddressParser()
 
-    def geocode(self, raw_address: str) -> Optional[dict]:
+    def geocode(self, raw_address: str, number_of_addresses : int) -> Optional[list[dict]]:
         """
         Получает одну строку адреса.
         Возвращает словарь с форматированным адресом и координатами.
@@ -25,12 +34,12 @@ class GeocoderEngine:
         db_result = None
 
         with DBClient(self.db_path) as db:
-            db_result = db.search_address(tokens)
+            db_result = db.search_addresses(tokens, number_of_addresses * 10)
 
-        if not db_result:
+        if not db_result or len(db_result) == 0:
             raise AddressNotFoundError(f"Адрес '{raw_address}' не найден в базе данных.")
-
-        return db_result
+        
+        return self.get_candidates(raw_address, db_result, number_of_addresses)
 
     def geocode_batch(self, input_path: str, output_path: str) -> None:
         """
@@ -57,7 +66,7 @@ class GeocoderEngine:
                         outfile.write("\n")
                         continue
 
-                    db_result = db.search_address(tokens)
+                    db_result = db.search_addresses(tokens, )
 
                     if db_result:
                         out_data = {
@@ -85,3 +94,19 @@ class GeocoderEngine:
             raise GeocoderError(f"Файл не найден: {input_path}")
         except IOError as e:
             raise GeocoderError(f"Ошибка ввода-вывода при работе с файлами: {e}")
+
+    def get_candidates(self, query: str, choices : list[dict], number_of_candidates : int) -> list[dict]:
+        """
+        Выдает <= N адресов, похожих на query
+        """
+        s = self.parser.parse_structure(raw_text=query)
+        results = process.extract(
+            query = s,
+            choices = choices,
+            processor = address_process,
+            limit = number_of_candidates,
+        )
+        return [x[0] for x in results]
+        
+        
+        

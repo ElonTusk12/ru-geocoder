@@ -28,7 +28,7 @@ class DBClient:
             self._conn.close()
             self._conn = None
 
-    def search_address(self, tokens: list[str]) -> dict | None:
+    def search_addresses(self, tokens: list[str], number_of_address : int) -> list[dict] | None:
         if not tokens:
             return None
 
@@ -43,26 +43,22 @@ class DBClient:
                 raise DatabaseConnectionError(f"Не удалось подключиться к базе данных {self.db_path}: {e}")
 
         cursor = self._conn.cursor()
-        #lat lon - широта, долгота
-        #['нск', 'ленина'] -> 'нск* AND ленина*'
-        #LIMIT 1 - первое совпадение
         fts_query = " AND ".join([f"{token}*" for token in tokens])
 
-        query = """
+        query = f"""
                     SELECT region, city, street, house, lat, lon 
                     FROM addresses 
                     WHERE addresses MATCH ? 
-                    LIMIT 1;
+                    LIMIT {number_of_address};
                 """
 
         try:
             cursor.execute(query, (fts_query,))  # запрос к базе данных с параметрами
-            row = cursor.fetchone()  # извлекаем следующую строку результата запроса
+            rows = cursor.fetchall()  # извлекаем следующую строку результата запроса
 
-            if row:
-                format_address = f"{row['region']}, г. {row['city']}, ул. {row['street']}, д. {row['house']}"
-                return {
-                    "format_address": format_address,
+            if rows:
+                find_addresses = [{
+                    "format_address": f"{row['region']}, г. {row['city']}, ул. {row['street']}, д. {row['house']}",
                     "region": row["region"],
                     "city": row["city"],
                     "street": row["street"],
@@ -70,6 +66,9 @@ class DBClient:
                     "lat": row["lat"],
                     "lon": row["lon"]
                 }
+                    for row in rows
+                ]
+                return find_addresses
             return None
 
         except sqlite3.Error as e:

@@ -12,8 +12,10 @@ def main():
     parser.add_argument('-a', '--address', type=str, metavar="ADDR", help='Одиночный адрес в свободной формe')
     parser.add_argument('-i', '--input', type=str, help='Путь к входному файлу со списком адресов')
     parser.add_argument('-o', '--output', type=str, help='Путь к файлу для сохранения результатов')
+    parser.add_argument('-n', '--number', type=str, help='Количество вариантов адресов')
     parser.add_argument('--debug', action='store_true',
                         help='Режим отладки (вывод Traceback)')
+    
 
     args = parser.parse_args()
 
@@ -33,7 +35,7 @@ def main():
         engine = GeocoderEngine()
         if args.address:
             #одиночный режим
-            result = engine.geocode(args.address)
+            result = engine.geocode(args.address, int(args.number) or 1)
             print(json.dumps(result, ensure_ascii=False, indent=2))
         elif args.input:
             #пакетный режим
