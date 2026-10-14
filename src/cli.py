@@ -12,10 +12,10 @@ def main():
     parser.add_argument('-a', '--address', type=str, metavar="ADDR", help='Одиночный адрес в свободной формe')
     parser.add_argument('-i', '--input', type=str, help='Путь к входному файлу со списком адресов')
     parser.add_argument('-o', '--output', type=str, help='Путь к файлу для сохранения результатов')
-    parser.add_argument('-n', '--number', type=str, help='Количество вариантов адресов')
+    parser.add_argument('-n', '--number', type=int, default=1, help='Количество вариантов адресов (output : <= N)')
     parser.add_argument('--debug', action='store_true',
                         help='Режим отладки (вывод Traceback)')
-    
+
 
     args = parser.parse_args()
 
@@ -35,16 +35,16 @@ def main():
         engine = GeocoderEngine()
         if args.address:
             #одиночный режим
-            result = engine.geocode(args.address, int(args.number) or 1)
+            result = engine.geocode(args.address, args.number)
             print(json.dumps(result, ensure_ascii=False, indent=2))
         elif args.input:
             #пакетный режим
-            engine.geocode_batch(args.input, args.output)
-            succ_json = {
+            engine.geocode_batch(args.input, args.output, args.number)
+            success_json = {
                 "status": "success",
                 "message": f"Пакетная обработка завершена. Результаты сохранены в {args.output}"
             }
-            print(json.dumps(succ_json, ensure_ascii=False, indent=2))
+            print(json.dumps(success_json, ensure_ascii=False, indent=2))
 
     except AddressNotFoundError as e:
         error_json = {"status": "not_found", "message": str(e)}

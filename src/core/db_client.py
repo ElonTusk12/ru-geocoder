@@ -28,7 +28,7 @@ class DBClient:
             self._conn.close()
             self._conn = None
 
-    def search_addresses(self, tokens: list[str], number_of_address : int) -> list[dict] | None:
+    def search_addresses(self, tokens: list[str], number_of_address : int = 1) -> list[dict] | None:
         if not tokens:
             return None
 

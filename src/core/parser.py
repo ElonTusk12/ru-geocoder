@@ -17,7 +17,7 @@ class AddressParser:
         self.corp_pattern = re.compile(r'(?:к|корп|корпус)\b\s*(\d+[а-я]?)')
         self.street_pattern = re.compile(r'(?:ул|улица|проспект|пр|пр-кт|ш|шоссе|пер|переулок)\b\s*'
                                          r'('
-                                         r'[а-яё\-]+(?:\s+[а-яё\-]+)*'
+                                         r'[а-яё\-]+(?:\s[а-яё\-]+)*'
                                          r'|'
                                          r'\d+\s+[а-яё\-]+(?:\s+[а-яё\-]+)*'
                                          r')'
@@ -32,7 +32,7 @@ class AddressParser:
         raw_text_clean = self.punctuation_pattern.sub(' ', raw_text.lower())
 
         return [token for token in raw_text_clean.split() if token not in self.garbage_words]
-    def parse_structure(self, raw_text: str) -> dict[str, str | None | Any]:
+    def parse_structure(self, raw_text: str) -> dict[str, str]:
         """
         Парсит строку для ранжирования rapidfuzz
         """
@@ -43,10 +43,9 @@ class AddressParser:
         street_match = self.street_pattern.search(raw_text_clean)
 
         return {
-            #'raw_address': raw_text_clean,
-            'house': (house_match.group(1) or house_match.group(2)) if house_match else None,
-            'corp': corp_match.group(1) if corp_match else None,
-            'street': street_match.group(1) if street_match else None,
+            'house': (house_match.group(1) or house_match.group(2)) if house_match else '',
+            'corp': corp_match.group(1) if corp_match else '',
+            'street': street_match.group(1) if street_match else '',
         }
         
         

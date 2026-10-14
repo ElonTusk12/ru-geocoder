@@ -3,7 +3,7 @@ import json
 from src.core.db_client import DBClient
 from src.core.parser import AddressParser
 from src.exceptions import AddressParseError, AddressNotFoundError, GeocoderError
-from rapidfuzz import fuzz, process
+from rapidfuzz import process
 
 
 def address_process(tokens: dict[str, str]) -> str:
@@ -19,7 +19,7 @@ class GeocoderEngine:
         self.db_path = db_path
         self.parser = AddressParser()
 
-    def geocode(self, raw_address: str, number_of_addresses : int) -> Optional[list[dict]]:
+    def geocode(self, raw_address: str, number_of_addresses : int = 1) -> Optional[list[dict]]:
         """
         Получает одну строку адреса.
         Возвращает словарь с форматированным адресом и координатами.
@@ -41,17 +41,17 @@ class GeocoderEngine:
         
         return self.get_candidates(raw_address, db_result, number_of_addresses)
 
-    def geocode_batch(self, input_path: str, output_path: str) -> None:
+    def geocode_batch(self, input_path: str, output_path: str, number_of_addresses : int = 1) -> None:
         """
         Пакетный режим обработки файлов
         Читает адреса из input_path и сохраняет результаты в output_path
         """
         try:
-            with open(input_path, "r", encoding="utf-8") as infile, \
-                    open(output_path, "w", encoding="utf-8") as outfile, \
+            with open(input_path, "r", encoding="utf-8") as in_file, \
+                    open(output_path, "w", encoding="utf-8") as out_file, \
                     DBClient(self.db_path) as db:
 
-                for line in infile:
+                for line in in_file:
                     raw_address = line.strip()
                     if not raw_address:
                         continue
@@ -62,34 +62,37 @@ class GeocoderEngine:
                             "initial_address": raw_address,
                             "status": "parse_error"
                         }
-                        json.dump(out_data, outfile, ensure_ascii=False)
-                        outfile.write("\n")
+                        json.dump(out_data, out_file, ensure_ascii=False)
+                        out_file.write("\n")
                         continue
 
-                    db_result = db.search_addresses(tokens, )
+                    db_result = db.search_addresses(tokens, number_of_addresses * 10)
 
-                    if db_result:
-                        out_data = {
-                            "initial_address": raw_address,
-                            "status": "success",
-                            "format_address": db_result["format_address"],
-                            "address_components": {
-                                "region": db_result["region"],
-                                "city": db_result["city"],
-                                "street": db_result["street"],
-                                "house": db_result["house"]
-                            },
-                            "lat": db_result["lat"],
-                            "lon": db_result["lon"]
-                        }
+                    if db_result and len(db_result) > 0:
+                        candidates = self.get_candidates(raw_address, db_result, number_of_addresses)
+                        for result in candidates:
+                            out_data = {
+                                "initial_address": raw_address,
+                                "status": "success",
+                                "format_address": result["format_address"],
+                                "address_components": {
+                                    "region": result["region"],
+                                    "city": result["city"],
+                                    "street": result["street"],
+                                    "house": result["house"]
+                                },
+                                "lat": result["lat"],
+                                "lon": result["lon"]
+                            }
+                            json.dump(out_data, out_file, ensure_ascii=False)
+                            out_file.write("\n")
                     else:
                         out_data = {
                             "initial_address": raw_address,
                             "status": "not_found"
                         }
-
-                    json.dump(out_data, outfile, ensure_ascii=False)
-                    outfile.write("\n")
+                        json.dump(out_data, out_file, ensure_ascii=False)
+                        out_file.write("\n")
         except FileNotFoundError:
             raise GeocoderError(f"Файл не найден: {input_path}")
         except IOError as e:
