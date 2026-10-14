@@ -35,15 +35,29 @@ class TestCliSingleMode:
 
         captured = capsys.readouterr()
         data = json.loads(captured.out)
-        assert "московская" in data["region"]
-        assert "москва" in data["city"]
-        assert "15" in data["house"]
-        assert data["lat"] == 55.7558
-        assert data["lon"] == 37.6173
+        assert isinstance(data, list)
+        assert len(data) >= 1
+        assert "московская" in data[0]["region"]
+        assert "москва" in data[0]["city"]
+        assert "15" in data[0]["house"]
+        assert data[0]["lat"] == 55.7558
+        assert data[0]["lon"] == 37.6173
+
+    def test_single_mode_multiple_variants(self, capsys):
+        sys.argv = ["src.cli", "-a", "ленина", "-n", "2"]
+
+        main()
+
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert isinstance(data, list)
+        assert len(data) <= 2
+        assert len(data) > 0
 
 
     def test_empty_args(self, capsys):
         sys.argv = ["src.cli"]
+        
         with pytest.raises(SystemExit) as exc_info:
             main()
 
@@ -54,6 +68,7 @@ class TestCliSingleMode:
 
     def test_not_found_single_mode(self, capsys):
         sys.argv = ["src.cli", "-a", "городакоторогонет"]
+        
         with pytest.raises(SystemExit) as exc_info:
             main()
 
@@ -66,7 +81,7 @@ class TestCliSingleMode:
 
     def test_critical_error(self, capsys, monkeypatch):
         monkeypatch.setattr(GeocoderEngine, "geocode",
-                            lambda self, address: exec('raise(ValueError("Критическая ошибка"))'))
+                            lambda self, address, number_of_addresses=1: exec('raise(ValueError("Критическая ошибка"))'))
         sys.argv = ["src.cli", "-a", "г. Москва, ул. Ленина, д. 15"]
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -79,9 +94,9 @@ class TestCliSingleMode:
 
     def test_debug_mode(self, capsys, monkeypatch):
         monkeypatch.setattr(GeocoderEngine, "geocode",
-                            lambda self, address: exec('raise(ValueError("Дебаг"))'))
+                            lambda self, address, number_of_addresses=1: exec('raise(ValueError("Дебаг"))'))
         sys.argv = ["src.cli", "-a", "г. Москва, ул. Ленина, д. 15", "--debug"]
-        with pytest.raises(ValueError, match="Дебаг") as exc_info:
+        with pytest.raises(ValueError, match="Дебаг"):
             main()
 
 
@@ -101,8 +116,10 @@ class TestCliBatchMode:
     def test_successful_batch_mode(self, tmp_path, capsys):
         input_file = tmp_path / "input.txt"
         output_file = tmp_path / "output.jsonl"
-        input_file.write_text(f"г. Москва, ул. Ленина, д. 15\n"
-                              f"новосиб, ул ленина 5\n", encoding="utf-8")
+        input_file.write_text(
+            f"г. Москва, ул. Ленина, д. 15\n"
+            f"новосиб, ул ленина 5\n", encoding="utf-8"
+        )
         sys.argv = ["src.cli", "-i", str(input_file), "-o", str(output_file)]
 
         main()
@@ -113,6 +130,22 @@ class TestCliBatchMode:
         assert "Пакетная обработка завершена" in data["message"]
         assert output_file.exists()
 
+    def test_successful_batch_mode_multiple_variants(self, tmp_path, capsys):
+        input_file = tmp_path / "input.txt"
+        output_file = tmp_path / "output.jsonl"
+        input_file.write_text("ленина\n", encoding="utf-8")
+        sys.argv = ["src.cli", "-i", str(input_file), "-o", str(output_file), "-n", "2"]
+
+        main()
+
+        captured = capsys.readouterr()
+        data = json.loads(captured.out)
+        assert data["status"] == "success"
+        assert output_file.exists()
+        lines = output_file.read_text(encoding="utf-8").strip().splitlines()
+        assert len(lines) <= 2
+        assert len(lines) > 0
+
 
     def test_not_exists_output_file(self, tmp_path, capsys):
         input_file = tmp_path / "input.txt"
@@ -120,6 +153,7 @@ class TestCliBatchMode:
 
         with pytest.raises(SystemExit) as exc_info:
             main()
+            
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
         data = json.loads(captured.err)
@@ -138,10 +172,3 @@ class TestCliBatchMode:
         data = json.loads(captured.err)
         assert data["status"] == "error"
         assert "Файл не найден" in data["message"]
-
-
-
-
-
-
-

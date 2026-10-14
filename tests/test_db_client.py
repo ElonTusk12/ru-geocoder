@@ -7,19 +7,50 @@ def db_client():
 
 class TestDBClient:
 
-    def test_db_client_context_manager(self, db_client):
-        with db_client as db:
-            result = db.search_addresses(["новосибирск", "ленина", "5"], )
-            assert result is not None
-            assert result["lat"] == 55.0302
-            assert "новосибирская" in result["region"]
+    def test_db_client_search_addresses_limit_one(self, db_client):
+        tokens = ["новосибирск", "ленина", "5"]
 
+        result = db_client.search_addresses(tokens, number_of_address=1)
+        
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert result[0]["lat"] == 55.0302
+        assert "format_address" in result[0]
 
+    def test_db_client_search_addresses_default_limit(self, db_client):
+        tokens = ["новосибирск", "ленина", "5"]
+
+        result = db_client.search_addresses(tokens)
+            
+        assert isinstance(result, list)
+        assert len(result) == 1
+
+    def test_db_client_search_addresses_limit_exceed(self, db_client):
+        tokens = ["москва"]
+        
+        result = db_client.search_addresses(tokens, number_of_address=10)
+            
+        assert isinstance(result, list)
+        assert len(result) >= 1
+
+    def test_db_client_search_addresses_multiple(self, db_client):
+        tokens = ["ленина"]
+        
+        result = db_client.search_addresses(tokens, number_of_address=2)
+        
+        assert isinstance(result, list)
+        assert len(result) <= 2
+        for item in result:
+            assert "format_address" in item
+            assert "lat" in item
+            assert "lon" in item
+    
     def test_db_client_address_not_found(self, db_client):
-        with db_client as db:
-            result = db.search_addresses(["городакоторогонет", "лол"], )
-            assert result is None
-
+        tokens = ["городакоторогонет", "лол"]
+        
+        result = db_client.search_addresses(tokens, )
+        
+        assert result is None
 
     def test_db_client_empty_tokens(self, db_client):
         result = db_client.search_addresses([], )

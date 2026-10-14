@@ -11,11 +11,19 @@ class TestEngine:
 
     def test_geocoder_successful_geocode(self, engine):
         result = engine.geocode("г. Москва, ул. Ленина, д. 15")
-        assert result["lat"] == 55.7558
-        assert result["lon"] == 37.6173
-        assert "московская" in result["region"]
-        assert "москва" in result["city"]
-        assert "15" in result["house"]
+        assert isinstance(result, list)
+        assert len(result) >= 1
+        assert result[0]["lat"] == 55.7558
+        assert result[0]["lon"] == 37.6173
+        assert "московская" in result[0]["region"]
+        assert "москва" in result[0]["city"]
+        assert "15" in result[0]["house"]
+
+    def test_geocoder_multiple_addresses(self, engine):
+        result = engine.geocode("ленина", number_of_addresses=2)
+        assert isinstance(result, list)
+        assert len(result) <= 2
+        assert len(result) > 0
 
     def test_geocoder_address_not_found(self, engine):
         with pytest.raises(AddressNotFoundError):
@@ -64,6 +72,21 @@ class TestBatchEngine:
         data_3 = json.loads(lines[2])
         assert data_3["status"] == "parse_error"
         assert data_3["initial_address"] == ",.,.,"
+
+    def test_geocoder_batch_multiple_addresses(self, engine, tmp_path):
+        input_file = tmp_path / "input.txt"
+        output_file = tmp_path / "output.jsonl"
+
+        input_file.write_text("ленина\n", encoding="utf-8")
+
+        engine.geocode_batch(str(input_file), str(output_file), number_of_addresses=2)
+
+        lines = output_file.read_text(encoding="utf-8").strip().splitlines()
+        assert len(lines) <= 2
+        assert len(lines) > 0
+        for line in lines:
+            data = json.loads(line)
+            assert data["status"] == "success"
 
     def test_engine_batch_file_not_found(self, engine):
         with pytest.raises(GeocoderError):
