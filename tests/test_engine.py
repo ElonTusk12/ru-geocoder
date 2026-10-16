@@ -5,7 +5,7 @@ from src.core.engine import GeocoderEngine
 
 @pytest.fixture
 def engine():
-    return GeocoderEngine(db_path="tests/test_data/geocoder_test.db")
+    return GeocoderEngine()
 
 class TestEngine:
 

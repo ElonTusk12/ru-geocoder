@@ -1,10 +1,14 @@
 import sys
 import argparse
 import json
+
+from src.core.db_client import DBClient
+from src.core.parser import AddressParser
 from src.core.engine import GeocoderEngine
 from src.exceptions import GeocoderError, AddressNotFoundError
 
 def main():
+    
     parser = argparse.ArgumentParser(
         description="Геокодер для российских адресов (JSON-вывод).",
         epilog="Коды возврата: 0 — Success, 1 — Handled Error, 2 — Critical Error."
@@ -13,9 +17,9 @@ def main():
     parser.add_argument('-i', '--input', type=str, help='Путь к входному файлу со списком адресов')
     parser.add_argument('-o', '--output', type=str, help='Путь к файлу для сохранения результатов')
     parser.add_argument('-n', '--number', type=int, default=1, help='Количество вариантов адресов (output : <= N)')
+    parser.add_argument('-d', '--db', type=str, help='Путь к файлу базы данных SQLite')
     parser.add_argument('--debug', action='store_true',
                         help='Режим отладки (вывод Traceback)')
-
 
     args = parser.parse_args()
 
@@ -32,7 +36,10 @@ def main():
         sys.exit(1)
 
     try:
-        engine = GeocoderEngine()
+        address_parser = AddressParser()
+        db_client = DBClient(args.db) if args.db else None
+        
+        engine = GeocoderEngine(address_parser, db_client)
         if args.address:
             #одиночный режим
             result = engine.geocode(args.address, args.number)

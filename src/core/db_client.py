@@ -44,9 +44,9 @@ class DBClient:
 
         cursor = self._conn.cursor()
         fts_query = " AND ".join([f"{token}*" for token in tokens])
-
+        # добавили distinct чтобы убрать повторы (эксперемент)
         query = f"""
-                    SELECT region, city, street, house, lat, lon 
+                    SELECT DISTINCT region, city, street, house, org, lat, lon 
                     FROM addresses 
                     WHERE addresses MATCH ? 
                     LIMIT {number_of_address};
@@ -58,11 +58,12 @@ class DBClient:
 
             if rows:
                 find_addresses = [{
-                    "format_address": f"{row['region']}, г. {row['city']}, ул. {row['street']}, д. {row['house']}",
+                    "format_address": f"{row['org'] + ', ' if row['org'] else ''}{row['region']}, г. {row['city']}, ул. {row['street']}, д. {row['house']}",
                     "region": row["region"],
                     "city": row["city"],
                     "street": row["street"],
                     "house": row["house"],
+                    "org": row["org"],
                     "lat": row["lat"],
                     "lon": row["lon"]
                 }

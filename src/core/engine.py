@@ -15,10 +15,9 @@ def address_process(tokens: dict[str, str]) -> str:
 
 
 class GeocoderEngine:
-    def __init__(self, db_path: Optional[str] = None):
-        self.db_path = db_path
-        self.parser = AddressParser()
-
+    def __init__(self, parser : Optional[AddressParser] = None, db_client : Optional[DBClient] = None) -> None:
+        self.parser = parser or AddressParser()
+        self.db_client = db_client or DBClient()
     def geocode(self, raw_address: str, number_of_addresses : int = 1) -> Optional[list[dict]]:
         """
         Получает одну строку адреса.
@@ -33,7 +32,7 @@ class GeocoderEngine:
 
         db_result = None
 
-        with DBClient(self.db_path) as db:
+        with self.db_client as db:
             db_result = db.search_addresses(tokens, number_of_addresses * 10)
 
         if not db_result or len(db_result) == 0:
@@ -49,7 +48,7 @@ class GeocoderEngine:
         try:
             with open(input_path, "r", encoding="utf-8") as in_file, \
                     open(output_path, "w", encoding="utf-8") as out_file, \
-                    DBClient(self.db_path) as db:
+                    self.db_client as db:
 
                 for line in in_file:
                     raw_address = line.strip()
@@ -79,7 +78,8 @@ class GeocoderEngine:
                                     "region": result["region"],
                                     "city": result["city"],
                                     "street": result["street"],
-                                    "house": result["house"]
+                                    "house": result["house"],
+                                    "org": result["org"],
                                 },
                                 "lat": result["lat"],
                                 "lon": result["lon"]

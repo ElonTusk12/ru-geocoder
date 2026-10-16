@@ -55,3 +55,11 @@ class TestDBClient:
     def test_db_client_empty_tokens(self, db_client):
         result = db_client.search_addresses([], )
         assert result is None
+
+    def test_db_client_search_by_org(self, db_client):
+        tokens = ["сбербанк"]
+        result = db_client.search_addresses(tokens)
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert result[0]["org"] == "сбербанк"
+        assert "сбербанк" in result[0]["format_address"]
