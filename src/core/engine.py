@@ -79,7 +79,7 @@ class GeocoderEngine:
                                     "city": result["city"],
                                     "street": result["street"],
                                     "house": result["house"],
-                                    "org": result["org"],
+                                    "orgs": result["orgs"],
                                 },
                                 "lat": result["lat"],
                                 "lon": result["lon"]
@@ -98,18 +98,42 @@ class GeocoderEngine:
         except IOError as e:
             raise GeocoderError(f"Ошибка ввода-вывода при работе с файлами: {e}")
 
-    def get_candidates(self, query: str, choices : list[dict], number_of_candidates : int) -> list[dict]:
+    def get_candidates(self, query: str, choices: list[dict], number_of_candidates: int) -> list[dict]:
         """
-        Выдает <= N адресов, похожих на query
+        Выдает <= N адресов, похожих на query.
+        Несколько организаций по одному адресу группируются в список orgs.
         """
         s = self.parser.parse_structure(raw_text=query)
-        results = process.extract(
-            query = s,
-            choices = choices,
-            processor = address_process,
-            limit = number_of_candidates,
+
+        all_results = process.extract(
+            query=s,
+            choices=choices,
+            processor=address_process,
+            limit=None,
         )
-        return [x[0] for x in results]
+
+        grouped: dict[tuple, dict] = {}
+        for item, score, _ in all_results:
+            key = (item["region"], item["city"], item["street"], item["house"])
+
+            if key not in grouped:
+                if len(grouped) >= number_of_candidates:
+                    continue  # уже набрали N уникальных адресов
+                grouped[key] = {
+                    "format_address": f"{item['region']}, г. {item['city']}, ул. {item['street']}, д. {item['house']}",
+                    "region": item["region"],
+                    "city": item["city"],
+                    "street": item["street"],
+                    "house": item["house"],
+                    "orgs": [],
+                    "lat": item["lat"],
+                    "lon": item["lon"],
+                }
+
+            if item["org"]:
+                grouped[key]["orgs"].append(item["org"])
+
+        return list(grouped.values())
         
         
         

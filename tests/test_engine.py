@@ -1,11 +1,14 @@
 import pytest
 import json
+
+from src.core.db_client import DBClient
 from src.exceptions import *
 from src.core.engine import GeocoderEngine
 
+DB_CLIENT = DBClient(db_path="tests/test_data/geocoder_test.db")
 @pytest.fixture
 def engine():
-    return GeocoderEngine()
+    return GeocoderEngine(db_client=DB_CLIENT)
 
 class TestEngine:
 
@@ -24,7 +27,13 @@ class TestEngine:
         assert isinstance(result, list)
         assert len(result) <= 2
         assert len(result) > 0
-
+        
+    def test_geocoder_multiple_orgs(self, engine):
+        result = engine.geocode("омск чапаева")
+        assert isinstance(result, list)
+        assert len(result) >= 1
+        assert "аптека" in result[0]["orgs"]
+        assert "втб" in result[0]["orgs"]
     def test_geocoder_address_not_found(self, engine):
         with pytest.raises(AddressNotFoundError):
             engine.geocode("городакоторогонет, ул. Ленина, д. 5")
@@ -42,7 +51,7 @@ class TestEngine:
             engine.geocode("некорректный адрес")
 
 class TestBatchEngine:
-
+    
     def test_geocoder_batch_basic(self, engine, tmp_path):
         input_file = tmp_path / "input.txt"
         output_file = tmp_path / "output.jsonl"
