@@ -3,16 +3,7 @@ import json
 from src.core.db_client import DBClient
 from src.core.parser import AddressParser
 from src.exceptions import AddressParseError, AddressNotFoundError, GeocoderError
-from rapidfuzz import process
-
-
-def address_process(tokens: dict[str, str]) -> str:
-    """
-    Составляет из токенов строку для сравнения улиц и домов
-    """
-    fields = [tokens.get("street"), tokens.get("house"), tokens.get("corp")]
-    return " ".join([str(f) for f in fields if f is not None])
-
+from rapidfuzz import process, fuzz
 
 class GeocoderEngine:
     def __init__(self, parser : Optional[AddressParser] = None, db_client : Optional[DBClient] = None) -> None:
@@ -103,12 +94,14 @@ class GeocoderEngine:
         Выдает <= N адресов, похожих на query.
         Несколько организаций по одному адресу группируются в список orgs.
         """
-        s = self.parser.parse_structure(raw_text=query)
+        clean_tokens = self.parser.parse_tokens(query)
+        clean_query: str = " ".join(clean_tokens) if clean_tokens else query
 
         all_results = process.extract(
-            query=s,
+            query=clean_query,
             choices=choices,
             processor=address_process,
+            scorer=fuzz.token_set_ratio,
             limit=None,
         )
 
@@ -128,12 +121,27 @@ class GeocoderEngine:
                     "orgs": [],
                     "lat": item["lat"],
                     "lon": item["lon"],
+                    "similarity_score": round(score, 1),
                 }
 
             if item["org"]:
                 grouped[key]["orgs"].append(item["org"])
 
         return list(grouped.values())
-        
-        
+
+def address_process(tokens: dict | str) -> str:
+    """
+    Составляет строку для сравнения адресов.
+    """
+    if isinstance(tokens, str):
+        return tokens
+    fields = [
+        tokens.get("region"),
+        tokens.get("city"),
+        tokens.get("street"),
+        tokens.get("house"),
+        tokens.get("corp"),
+        tokens.get("org"),
+    ]
+    return " ".join([str(f) for f in fields if f is not None and f != ""])
         

@@ -32,20 +32,5 @@ class AddressParser:
         raw_text_clean = self.punctuation_pattern.sub(' ', raw_text.lower())
 
         return [token for token in raw_text_clean.split() if token not in self.garbage_words]
-    def parse_structure(self, raw_text: str) -> dict[str, str]:
-        """
-        Парсит строку для ранжирования rapidfuzz
-        """
-        raw_text_clean = self.punctuation_pattern.sub(' ', raw_text.lower())
-
-        house_match = self.house_pattern.search(raw_text_clean)
-        corp_match = self.corp_pattern.search(raw_text_clean)
-        street_match = self.street_pattern.search(raw_text_clean)
-
-        return {
-            'house': (house_match.group(1) or house_match.group(2)) if house_match else '',
-            'corp': corp_match.group(1) if corp_match else '',
-            'street': street_match.group(1) if street_match else '',
-        }
         
         
