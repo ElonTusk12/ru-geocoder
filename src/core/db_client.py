@@ -16,6 +16,10 @@ class DBClient:
 
     def __enter__(self):
         """для оператора with (открывает соединение)"""
+        if not self.db_path.exists():
+            raise DatabaseConnectionError(
+                f"Файл базы данных не найден: {self.db_path}. Пожалуйста, запустите скрипт импорта данных: python3 data/import_data.py"
+            )
         try:
             self._conn = sqlite3.connect(self.db_path)
             self._conn.row_factory = sqlite3.Row
@@ -28,13 +32,17 @@ class DBClient:
             self._conn.close()
             self._conn = None
 
-    def search_addresses(self, tokens: list[str], number_of_address : int = 1) -> list[dict] | None:
+    def search_addresses(self, tokens: list[str], number_of_address : int = 1) -> list[dict]:
         if not tokens:
-            return None
+            return []
 
         #для случая если метод не был вызван через with
         is_local_conn = False
         if self._conn is None:
+            if not self.db_path.exists():
+                raise DatabaseConnectionError(
+                    f"Файл базы данных не найден: {self.db_path}. Пожалуйста, запустите скрипт импорта данных: python3 data/import_data.py"
+                )
             try:
                 self._conn = sqlite3.connect(self.db_path)
                 self._conn.row_factory = sqlite3.Row
@@ -44,16 +52,15 @@ class DBClient:
 
         cursor = self._conn.cursor()
         fts_query = " AND ".join([f"{token}*" for token in tokens])
-        # добавили distinct чтобы убрать повторы (эксперемент)
         query = f"""
                     SELECT DISTINCT region, city, street, house, org, lat, lon 
                     FROM addresses 
                     WHERE addresses MATCH ? 
-                    LIMIT {number_of_address};
+                    LIMIT ?;
                 """
 
         try:
-            cursor.execute(query, (fts_query,))  # запрос к базе данных с параметрами
+            cursor.execute(query, (fts_query, number_of_address))  # запрос к базе данных с параметрами
             rows = cursor.fetchall()  # извлекаем следующую строку результата запроса
 
             if rows:
@@ -70,8 +77,14 @@ class DBClient:
                     for row in rows
                 ]
                 return find_addresses
-            return None
+            return []
 
+        except sqlite3.OperationalError as e:
+            if "no such table: addresses" in str(e):
+                raise DatabaseConnectionError(
+                    f"Таблица 'addresses' не найдена в базе данных {self.db_path}. Пожалуйста, запустите скрипт импорта данных: python3 data/import_data.py"
+                )
+            raise GeocoderError(f"Ошибка при выполнении запроса к базе данных: {e}")
         except sqlite3.Error as e:
             raise GeocoderError(f"Ошибка при выполнении запроса к базе данных: {e}")
 

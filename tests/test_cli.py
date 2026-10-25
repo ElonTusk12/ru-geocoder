@@ -1,6 +1,7 @@
 import pytest
 import sys
 import json
+from pathlib import Path
 from src.core.db_client import DBClient
 from src.core.engine import GeocoderEngine
 from src.cli import main
@@ -8,10 +9,10 @@ from src.cli import main
 
 @pytest.fixture(autouse=True)
 def setup_test_db(monkeypatch):
-    test_db_path = "tests/test_data/geocoder_test.db"
+    test_db_path = Path("tests/test_data/geocoder_test.db")
 
     def mocked_init(self, db_path=None):
-        self.db_path = test_db_path
+        self.db_path = Path(db_path) if db_path else test_db_path
         self._conn = None
 
     monkeypatch.setattr(DBClient, "__init__", mocked_init)

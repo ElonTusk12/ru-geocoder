@@ -1,5 +1,6 @@
 import pytest
 from src.core.db_client import DBClient
+from src.exceptions import DatabaseConnectionError
 
 @pytest.fixture
 def db_client():
@@ -50,11 +51,11 @@ class TestDBClient:
         
         result = db_client.search_addresses(tokens, )
         
-        assert result is None
+        assert result == []
 
     def test_db_client_empty_tokens(self, db_client):
         result = db_client.search_addresses([], )
-        assert result is None
+        assert result == []
 
     def test_db_client_search_by_org(self, db_client):
         tokens = ["сбербанк"]
@@ -63,3 +64,22 @@ class TestDBClient:
         assert len(result) == 1
         assert result[0]["org"] == "сбербанк"
         assert "сбербанк" in result[0]["format_address"]
+
+    def test_db_client_missing_db(self, tmp_path):
+        non_exist_db = tmp_path / "non_exist.db"
+        client = DBClient(db_path=str(non_exist_db))
+        with pytest.raises(DatabaseConnectionError) as exc_info:
+            with client:
+                pass
+        assert "python3 data/import_data.py" in str(exc_info.value)
+
+    def test_db_client_missing_table(self, tmp_path):
+        empty_db = tmp_path / "empty.db"
+        import sqlite3
+        conn = sqlite3.connect(empty_db)
+        conn.close()
+
+        client = DBClient(db_path=str(empty_db))
+        with pytest.raises(DatabaseConnectionError) as exc_info:
+            client.search_addresses(["москва"])
+        assert "python3 data/import_data.py" in str(exc_info.value)
