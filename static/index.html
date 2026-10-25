@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RU-Geocoder</title>
+    <!-- Подключаем стили карты Leaflet (бесплатно, без API-ключей) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { 
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            max-width: 900px; 
+            margin: 2rem auto; 
+            padding: 0 1rem; 
+            color: #333;
+        }
+        h1 { margin-bottom: 1.5rem; font-size: 1.8rem; }
+        .search-box { 
+            display: flex; 
+            gap: 10px; 
+            margin-bottom: 1.5rem; 
+            align-items: center; 
+            flex-wrap: wrap;
+        }
+        input[type="text"] { 
+            flex-grow: 1; 
+            min-width: 250px;
+            padding: 0.65rem 1rem; 
+            font-size: 1rem; 
+            border: 1px solid #ccc; 
+            border-radius: 6px; 
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            border-color: #0066cc;
+        }
+        .limit-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.95rem;
+            color: #555;
+        }
+        input[type="number"] { 
+            width: 65px; 
+            padding: 0.65rem 0.5rem; 
+            font-size: 1rem; 
+            border: 1px solid #ccc; 
+            border-radius: 6px; 
+            text-align: center;
+            outline: none;
+        }
+        button { 
+            padding: 0.65rem 1.4rem; 
+            font-size: 1rem; 
+            font-weight: 500;
+            background: #0066cc; 
+            color: #fff; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            transition: background 0.2s;
+        }
+        button:hover { background: #0052a3; }
+        button:disabled { background: #99c2ff; cursor: not-allowed; }
+        #results { margin-bottom: 1.5rem; }
+        .card { 
+            padding: 1rem; 
+            border: 1px solid #e0e0e0; 
+            border-radius: 8px; 
+            margin-bottom: 0.8rem; 
+            background: #fafafa; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .card strong { color: #111; font-size: 1.05rem; }
+        .card-details { margin-top: 0.35rem; font-size: 0.9rem; color: #555; }
+        .error { 
+            color: #b71c1c; 
+            background: #ffebee; 
+            padding: 0.8rem 1rem; 
+            border-radius: 6px; 
+            border: 1px solid #ffcdd2; 
+        }
+        #map { height: 420px; width: 100%; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+
+    <h1>Поиск адреса (RU-Geocoder)</h1>
+
+    <div class="search-box">
+        <input type="text" id="addressInput" placeholder="Введите адрес (например, Москва, Тверская 7)..." />
+        
+        <div class="limit-wrapper">
+            <label for="limitInput">Кол-во:</label>
+            <input type="number" id="limitInput" value="1" min="1" max="10" title="Количество вариантов адреса" />
+        </div>
+
+        <button id="searchBtn">Найти</button>
+    </div>
+
+    <div id="map"></div>
+    <div id="results"></div>
+
+    <!-- Скрипт Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Инициализация карты (центр по умолчанию — Москва / Россия)
+        const map = L.map('map').setView([55.751244, 37.618423], 10);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        }).addTo(map);
+
+        let markerGroup = L.layerGroup().addTo(map);
+
+        async function doSearch() {
+            const query = document.getElementById('addressInput').value.trim();
+            const limit = parseInt(document.getElementById('limitInput').value, 10) || 1;
+            const resultsDiv = document.getElementById('results');
+            const searchBtn = document.getElementById('searchBtn');
+
+            if (!query) return;
+
+            searchBtn.disabled = true;
+            resultsDiv.innerHTML = '<em>Поиск...</em>';
+            markerGroup.clearLayers();
+
+            try {
+                const response = await fetch(`/api/geocode?address=${encodeURIComponent(query)}&limit=${limit}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Ошибка при поиске адреса');
+                }
+
+                resultsDiv.innerHTML = '';
+                const items = Array.isArray(data.data) ? data.data : [data.data];
+
+                if (items.length === 0) {
+                    resultsDiv.innerHTML = '<div class="card">Ничего не найдено</div>';
+                    return;
+                }
+
+                const bounds = [];
+
+                items.forEach((item, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.innerHTML = `
+                        <strong>#${index + 1}. ${item.format_address || query}</strong>
+                        <div class="card-details">
+                            <span>Координаты: <b>${item.lat}, ${item.lon}</b></span>
+                            ${item.similarity_score ? ` | Сходство: ${Math.round(item.similarity_score)}%` : ''}
+                        </div>
+                    `;
+                    resultsDiv.appendChild(card);
+
+                    // Ставим маркер на карту
+                    if (item.lat && item.lon) {
+                        const marker = L.marker([item.lat, item.lon]).addTo(markerGroup);
+                        marker.bindPopup(`<b>#${index + 1}</b>: ${item.format_address || query}`);
+                        bounds.push([item.lat, item.lon]);
+                    }
+                });
+
+                // Масштабируем карту под маркеры
+                if (bounds.length === 1) {
+                    map.setView(bounds[0], 15);
+                    markerGroup.getLayers()[0].openPopup();
+                } else if (bounds.length > 1) {
+                    map.fitBounds(bounds, { padding: [40, 40] });
+                }
+
+            } catch (err) {
+                resultsDiv.innerHTML = `<div class="error">${err.message}</div>`;
+            } finally {
+                searchBtn.disabled = false;
+            }
+        }
+
+        document.getElementById('searchBtn').addEventListener('click', doSearch);
+        document.getElementById('addressInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') doSearch();
+        });
+        document.getElementById('limitInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') doSearch();
+        });
+    </script>
+</body>
+</html>
