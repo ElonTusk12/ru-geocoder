@@ -83,3 +83,11 @@ class TestDBClient:
         with pytest.raises(DatabaseConnectionError) as exc_info:
             client.search_addresses(["москва"])
         assert "python3 data/import_data.py" in str(exc_info.value)
+
+    def test_db_client_search_bm25(self, db_client):
+        tokens = ["новосибирск", "ленина", "5"]
+        result = db_client.search_bm25(tokens, number_of_address=1)
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert result[0]["lat"] == 55.0302
+        assert "format_address" in result[0]

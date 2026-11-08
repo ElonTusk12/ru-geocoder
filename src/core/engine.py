@@ -2,17 +2,18 @@ from typing import Optional
 import json
 from src.core.db_client import DBClient
 from src.core.parser import AddressParser
+from src.core.formatter import format_address
 from src.exceptions import AddressParseError, AddressNotFoundError, GeocoderError
-from rapidfuzz import process, fuzz
+
 
 class GeocoderEngine:
-    def __init__(self, parser : Optional[AddressParser] = None, db_client : Optional[DBClient] = None) -> None:
+    def __init__(self, parser: Optional[AddressParser] = None, db_client: Optional[DBClient] = None) -> None:
         self.parser = parser or AddressParser()
         self.db_client = db_client or DBClient()
-    def geocode(self, raw_address: str, number_of_addresses : int = 1) -> Optional[list[dict]]:
+    def geocode(self, raw_address: str, number_of_addresses: int = 1) -> Optional[list[dict]]:
         """
         Получает одну строку адреса.
-        Возвращает словарь с форматированным адресом и координатами.
+        Возвращает список словарей с форматированным адресом и координатами.
         """
         if not raw_address or not raw_address.strip():
             raise AddressParseError("Пустая строка адреса.")
@@ -21,17 +22,15 @@ class GeocoderEngine:
         if not tokens:
             raise AddressParseError(f"Некорректный формат адреса: {raw_address}")
 
-        db_result = None
-
         with self.db_client as db:
             db_result = db.search_addresses(tokens, number_of_addresses * 10)
 
-        if not db_result or len(db_result) == 0:
+        if not db_result:
             raise AddressNotFoundError(f"Адрес '{raw_address}' не найден в базе данных.")
-        
-        return self.get_candidates(raw_address, db_result, number_of_addresses)
 
-    def geocode_batch(self, input_path: str, output_path: str, number_of_addresses : int = 1) -> None:
+        return self._aggregate_results(db_result, number_of_addresses)
+
+    def geocode_batch(self, input_path: str, output_path: str, number_of_addresses: int = 1) -> None:
         """
         Пакетный режим обработки файлов
         Читает адреса из input_path и сохраняет результаты в output_path
@@ -58,8 +57,8 @@ class GeocoderEngine:
 
                     db_result = db.search_addresses(tokens, number_of_addresses * 10)
 
-                    if db_result and len(db_result) > 0:
-                        candidates = self.get_candidates(raw_address, db_result, number_of_addresses)
+                    if db_result:
+                        candidates = self._aggregate_results(db_result, number_of_addresses)
                         for result in candidates:
                             out_data = {
                                 "initial_address": raw_address,
@@ -89,31 +88,31 @@ class GeocoderEngine:
         except IOError as e:
             raise GeocoderError(f"Ошибка ввода-вывода при работе с файлами: {e}")
 
-    def get_candidates(self, query: str, choices: list[dict], number_of_candidates: int) -> list[dict]:
-        """
-        Выдает <= N адресов, похожих на query.
-        Несколько организаций по одному адресу группируются в список orgs.
-        """
-        clean_tokens = self.parser.parse_tokens(query)
-        clean_query: str = " ".join(clean_tokens) if clean_tokens else query
+    @staticmethod
+    def _normalize_score(raw_score: float, top_score: float) -> float:
+        if top_score <= 0:
+            return 100.0
+        return min(round((raw_score / top_score) * 100, 1), 100.0)
 
-        all_results = process.extract(
-            query=clean_query,
-            choices=choices,
-            processor=address_process,
-            scorer=fuzz.token_set_ratio,
-            limit=None,
-        )
+    def _aggregate_results(self, choices: list[dict], limit: int) -> list[dict]:
 
         grouped: dict[tuple, dict] = {}
-        for item, score, _ in all_results:
+        top_score = choices[0].get("score", 1.0) if choices else 1.0
+
+        for item in choices:
             key = (item["region"], item["city"], item["street"], item["house"])
 
             if key not in grouped:
-                if len(grouped) >= number_of_candidates:
-                    continue  # уже набрали N уникальных адресов
+                if len(grouped) >= limit:
+                    continue  # уже набрали limit уникальных адресов
+
                 grouped[key] = {
-                    "format_address": f"{item['region']}, г. {item['city']}, ул. {item['street']}, д. {item['house']}",
+                    "format_address": format_address(
+                        region=item["region"],
+                        city=item.get("city"),
+                        street=item.get("street"),
+                        house=item.get("house")
+                    ),
                     "region": item["region"],
                     "city": item["city"],
                     "street": item["street"],
@@ -121,27 +120,10 @@ class GeocoderEngine:
                     "orgs": [],
                     "lat": item["lat"],
                     "lon": item["lon"],
-                    "similarity_score": round(score, 1),
+                    "similarity_score": self._normalize_score(item.get("score", 1.0), top_score),
                 }
 
-            if item["org"]:
+            if item.get("org") and item["org"] not in grouped[key]["orgs"]:
                 grouped[key]["orgs"].append(item["org"])
 
         return list(grouped.values())
-
-def address_process(tokens: dict | str) -> str:
-    """
-    Составляет строку для сравнения адресов.
-    """
-    if isinstance(tokens, str):
-        return tokens
-    fields = [
-        tokens.get("region"),
-        tokens.get("city"),
-        tokens.get("street"),
-        tokens.get("house"),
-        tokens.get("corp"),
-        tokens.get("org"),
-    ]
-    return " ".join([str(f) for f in fields if f is not None and f != ""])
-        

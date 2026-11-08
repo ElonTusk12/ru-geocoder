@@ -1,9 +1,12 @@
 import sqlite3
 from pathlib import Path
+from src.core.tantivy_index import create_or_open_index, index_from_sqlite
+import shutil
 
 
 def create_test_db():
-    db_path = Path(__file__).parent / "geocoder_test.db"
+    base_dir = Path(__file__).parent
+    db_path = base_dir / "geocoder_test.db"
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
@@ -39,7 +42,14 @@ def create_test_db():
 
     conn.commit()
     conn.close()
-    print(f"Тестовая база данных успешно создана {db_path}")
+    print(f"Тестовая база данных SQLite успешно создана {db_path}")
+
+    # Создаем тестовый индекс Tantivy
+    tantivy_path = base_dir / "geocoder_test_tantivy"
+    if tantivy_path.exists():
+        shutil.rmtree(tantivy_path)
+    count = index_from_sqlite(db_path, tantivy_path)
+    print(f"Тестовый индекс Tantivy успешно создан ({count} записей) в {tantivy_path}")
 
 
 if __name__ == '__main__':
